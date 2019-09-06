@@ -95,7 +95,7 @@ void consec_xor(char* dest,char* start1,char* start2,int n) {
 	printBinary(dest,n);
 }
 void cap(char* loc,int bits) {
-	loc[0]&=(0b111);
+	loc[0]&=(0xff);
 }
 void consec_invert(char* dest,char* start1,int n) {
 	printf("INVERT:\n");
@@ -149,12 +149,16 @@ int* LD_fuzzyFind(char* memLoc,LD_fuzzyFindChar* T,LD_fuzzyFindChar* P,int alpha
 	memset(data.PMl,0,lettersSize);
 	md8-=2;
 	char* PMx(LD_fuzzyFindChar letter) {
+		printf("LETTER:%i\n",letter);
+		printBinary(data.PMl+((2+md8)*(letter)),1);
 		return data.PMl+((2+md8)*(letter));
+		
 	}
 	for(int i=1;i!=m+1;i++) {
-		memset((md8+2)*(i-1)+data.PMl,0,md8+2);
 		PMx(P[i])[0]|=1<<(i-1);
+		printBinary(PMx(P[i]),1);
 	}
+	printBinary(PMx(1),1);
 	memset(data.VP,0,md8+2);
 	bset_bitPointer a={
 		.whatBit=0,
@@ -236,6 +240,7 @@ int* LD_fuzzyFind(char* memLoc,LD_fuzzyFindChar* T,LD_fuzzyFindChar* P,int alpha
 			currentDistance--;
 		printf("Edit Distance:%i\n",currentDistance);
 		//update values
+		printBinary(PMx(1),1);
 		memcpy(data.TC,TCa,md8);
 		memcpy(data.DO,D0a,md8);
 		memcpy(data.HP,HPa,md8);
@@ -247,8 +252,8 @@ int* LD_fuzzyFind(char* memLoc,LD_fuzzyFindChar* T,LD_fuzzyFindChar* P,int alpha
 int main(int argc,char** argv) {
 	size_t size=LD_fuzzyFind_allocateSize(4,3,3);
 	char* allocation=alloca(size);
-	char cat[]={0,3,3,3};
-	char act[]={0,3,3,3};
+	char cat[]={3,3,3,3};
+	char act[]={3,3,3,3};;
 	char test=0b011101;
 	printBinary(&test,1);
 	LD_fuzzyFind(allocation,cat,act,4,3,3);
