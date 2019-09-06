@@ -46,63 +46,39 @@ typedef struct {
 	int whatBit;
 } bset_bitPointer;
 void consec_or(char* dest,char* start,char* start2,int n) {
-	printf("OR:\n");
-	printBinary(start,n);
-	printBinary(start2,n);
 	for(int i=0;i!=n;i++)
 		dest[i]=start[i]|start2[i];
-	printBinary(dest,n);
 }
 void consec_bshiftL1(char* dest,char* start1,int n) {
-	printf("bSHIFT1:\n");
-	printBinary(start1,n);
 	unsigned int temp=0;
 	for(int i=0;i!=n;i++) {
-		temp=(start1[i]<<1)|(temp&1);
+		temp|=((start1[i]<<1)|(temp&1))&0xff;
 		dest[i]=temp;
 		temp>>=8;
 	}
-	//dest[n]=temp;
-	printBinary(dest,n);
 }
 void consec_add(unsigned char* dest,unsigned char* start1,unsigned char* start2,int n) {
 	unsigned int A=0;
-	printf("ADD:\n");
-	printBinary(start1,n);
-	printBinary(start2,n);
 	for(int i=0;i!=n;i++) {
 		A+=(unsigned int)(start1[i])+(unsigned int)(start2[i]);
 		dest[i]=(unsigned char)(A&0xff);
 		A>>=8;
 	}
-	dest[n]=(unsigned char)A;
-	printBinary(dest,n+1);
 }
 void consec_and(char* dest,char* start1,char* start2,int n) {
-	printf("AND:\n");
-	printBinary(start1,n);
-	printBinary(start2,n);
 	for(int i=0;i!=n;i++)
 		dest[i]=start1[i]&start2[i];
-	printBinary(dest,n);
 }
 void consec_xor(char* dest,char* start1,char* start2,int n) {
-	printf("XOR:\n");
-	printBinary(start1,n);
-	printBinary(start2,n);
 	for(int i=0;i!=n;i++)
 		dest[i]=start1[i]^start2[i];
-	printBinary(dest,n);
 }
 void cap(char* loc,int bits) {
 	loc[0]&=(0xff);
 }
 void consec_invert(char* dest,char* start1,int n) {
-	printf("INVERT:\n");
-	printBinary(start1,n);
 	for(int i=0;i!=n;i++)
 		dest[i]=~start1[i];
-	printBinary(dest,n);
 }
 void bset_setOrResetXbitsStartingAt(bset_bitPointer* start,int len,bool setOrReset) {
 	char mask;
@@ -135,28 +111,19 @@ size_t LD_fuzzyFind_allocateSize(int alhpabetSize,int m,int n) {
 
 int* LD_fuzzyFind(char* memLoc,LD_fuzzyFindChar* T,LD_fuzzyFindChar* P,int alphabetSize,int m,int n) {
 	size_t md8=m/8+(m%8!=0)?1:0;
-	md8+=2;
 	size_t lettersSize=md8*alphabetSize;
 	LD_fuzzyFinderData data={
-		.PMl=0+memLoc,
-		.VN=lettersSize+memLoc,
-		.VP=lettersSize+md8+memLoc,
-		.DO=lettersSize+md8*2+memLoc,
-		.HN=lettersSize+md8*3+memLoc,
-		.HP=lettersSize+md8*4+memLoc,
-		.TC=lettersSize+md8*5+memLoc,
+		.PMl=malloc(lettersSize),
+		.VN=malloc(3),
+		.VP=malloc(3),
+		.DO=malloc(3),
+		.HN=malloc(3),
+		.HP=malloc(3),
+		.TC=malloc(3),
 	};
 	memset(data.PMl,0,lettersSize);
-	md8-=2;
-	char* PMx(LD_fuzzyFindChar letter) {
-		printf("LETTER:%i\n",letter);
-		printBinary(data.PMl+((2+md8)*(letter)),1);
-		return data.PMl+((2+md8)*(letter));
-		
-	}
-	for(int i=1;i!=m+1;i++) {
-		PMx(P[i])[0]|=1<<(i-1);
-		printBinary(PMx(P[i]),1);
+	char* PMx(char letter) {
+		return data.PMl+((int)letter)*md8;
 	}
 	printBinary(PMx(1),1);
 	memset(data.VP,0,md8+2);
@@ -165,6 +132,9 @@ int* LD_fuzzyFind(char* memLoc,LD_fuzzyFindChar* T,LD_fuzzyFindChar* P,int alpha
 		.byte=data.VP
 	};
 	bset_setOrResetXbitsStartingAt(&a,m,true);
+	for(int i=0;i!=m+1;i++) {
+		PMx(P[i])[0]|=1<<(i-1);
+	}
 	memset(data.VN,0,md8);
 	memset(data.TC,0,md8);
 	int currentDistance=m;
@@ -175,63 +145,50 @@ int* LD_fuzzyFind(char* memLoc,LD_fuzzyFindChar* T,LD_fuzzyFindChar* P,int alpha
 		memset(temp1,0,md8);
 		char* temp2=malloc(md8);
 		memset(temp2,0,md8);
-		printf("1\n");
 		consec_invert(temp2,data.TC,md8); //(~TC)
-		cap(temp2,m);
 		consec_and(temp2,PMx(T[j]),temp2,md8); //(~TC)&PMj
-		cap(temp2,m);
 		consec_bshiftL1(temp2,temp2,md8); //((~TC)&PMj)<<1
-		cap(temp2,m);
 		consec_and(temp2,PMx(T[j-1]),temp2,md8);//(((~TC)&PMj)<<1)&PM[T[j-1]]
-		cap(temp2,m);
 		consec_or(TCa,PMx(T[j]),temp2,md8); //PM[T[j]]|((((~TC)&PMj)<<1)&PM[T[j-1]])
-		cap(TCa,m);
+		printf("TCa:\n");
+		printBinary(TCa,md8);
 		
-		printf("2\n");
 		consec_and(temp2,TCa,data.VP,md8);
-		cap(temp2,m);
 		consec_add(temp2,temp2,data.VP,md8);
-		cap(temp2,m);
 		consec_xor(temp2,data.VP,temp2,md8);
-		cap(temp2,m);
-		consec_or(temp2,data.VN,temp2,md8);
-		cap(temp2,m);
+		consec_or(temp2,data.VN,temp2,md8);;
 		unsigned char* D0a=malloc(md8);
 		memset(D0a,0,md8);
 		consec_or(D0a,TCa,temp2,md8);
-		cap(D0a,m);
+		printf("d0:\n");
+		printBinary(D0a,md8);
+		
 		unsigned char* HPa=malloc(md8);
 		memset(HPa,0,md8);
 		consec_or(temp2,D0a,data.VP,md8);
-		cap(temp2,m);
-		consec_invert(temp2,temp2,md8);
-		cap(temp2,m);
+		consec_invert(temp2,temp2,md8);;
 		consec_or(HPa,data.VN,temp2,md8);
-		cap(HPa,m);
+		printf("Hpa:\n");
+		printBinary(HPa,md8);
 		
 		unsigned char* HNa=malloc(md8);
 		memset(HNa,0,md8);
 		consec_and(HNa,data.VP,D0a,md8);
-		cap(HNa,m);
+		printf("HNa:\n");
+		printBinary(HNa,md8);
 		unsigned char* VPa=malloc(md8);
 		memset(VPa,0,md8);
 		consec_bshiftL1(temp2,HPa,md8);
-		cap(temp2,m);
-		consec_or(temp1,D0a,temp2,md8);
-		cap(temp1,m);
+		consec_or(temp1,D0a,temp2,md8);;
 		consec_invert(temp1,temp1,md8);
-		cap(temp1,m);
-		consec_bshiftL1(temp1,HNa,md8);
-		cap(temp1,m);
+		consec_bshiftL1(temp2,HNa,md8);
 		consec_or(VPa,temp2,temp1,md8);
-		cap(VPa,m);
-		
+		printf("VPa:\n");
+		printBinary(VPa,md8);
 		unsigned char* VNa=malloc(md8);
 		memset(VNa,0,md8);
 		consec_bshiftL1(temp2,HPa,md8);
-		cap(temp2,m);
 		consec_and(VNa,temp2,D0a,md8);
-		cap(VNa,m);
 		
 		//check for dist
 		if(0!=((1<<((m-1)%8))&(HPa[(m-1)/8])))
@@ -239,24 +196,58 @@ int* LD_fuzzyFind(char* memLoc,LD_fuzzyFindChar* T,LD_fuzzyFindChar* P,int alpha
 		if(0!=((1<<((m-1)%8))&(HNa[(m-1)/8])))
 			currentDistance--;
 		printf("Edit Distance:%i\n",currentDistance);
-		//update values
-		printBinary(PMx(1),1);
 		memcpy(data.TC,TCa,md8);
-		memcpy(data.DO,D0a,md8);
-		memcpy(data.HP,HPa,md8);
-		memcpy(data.HN,HNa,md8);
 		memcpy(data.VP,VPa,md8);
 		memcpy(data.VN,VNa,md8);
+	}
+	return NULL;
+}
+void fuzzyTest(char* t,char* p,int alphabetSize,unsigned int m,unsigned int n) {
+	char alphabet[alphabetSize];
+	memset(alphabet,0,alphabetSize);
+	for(int i=0;i!=m+1;i++) {
+		alphabet[p[i]]|=1<<(i-1);
+	}
+	char VP=(0xff)>>(8-m);
+	char VN=0;
+	int currDist=m;
+	char TC=0;
+	for(int j=1;j!=n+1;j++) {
+		char TCa=alphabet[t[j]]|((((~TC)&alphabet[t[j]])<<1)&alphabet[t[j-1]]);
+		printf("OTCA:\n");
+		printBinary(&TCa,1);
+		char D0=(((TCa&VP)+VP)^VP)|TCa|VN;
+		printf("OD0:\n");
+		printBinary(&D0,1);
+		char HPa=VN|~(D0|VP);
+		printf("HPa:\n");
+		printBinary(&HPa,1);
+		char HNa=(D0&VP);
+		printf("HNa:\n");
+		printBinary(&HNa,1);
+		char VPa=(HNa<<1)|~(D0|(HPa<<1));
+		
+		printf("VPa:\n");
+		printBinary(&VPa,1);
+		char VNa=(HPa<<1)&D0;
+		if(0!=(HPa&(1<<(m-1))))
+			currDist++;
+		if(0!=(HNa&(1<<(m-1))))
+			currDist--;
+		printf("CurrDist:%i\n",currDist);
+		VP=VPa;
+		VN=VNa;
+		TC=TCa;
 	}
 }
 int main(int argc,char** argv) {
 	size_t size=LD_fuzzyFind_allocateSize(4,3,3);
-	char* allocation=alloca(size);
-	char cat[]={3,3,3,3};
-	char act[]={3,3,3,3};;
-	char test=0b011101;
-	printBinary(&test,1);
-	LD_fuzzyFind(allocation,cat,act,4,3,3);
+	char* allocation=malloc(size);
+	char cat[]={0,1,3,2,3,1};
+	char act[]={0,1,2,3,3,3};
+	fuzzyTest(cat,act,4,5,5);
+	printf("==============");
+	LD_fuzzyFind(NULL,cat,act,4,5,5);
 	return (EXIT_SUCCESS);
 }
 
